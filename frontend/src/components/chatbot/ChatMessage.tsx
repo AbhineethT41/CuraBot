@@ -1,5 +1,6 @@
 import React from 'react';
 import { User, Bot } from 'lucide-react';
+import VoiceOutput from './VoiceOutput';
 
 export interface Message {
   id: string;
@@ -23,7 +24,10 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
         </div>
         
         <div className={`rounded-lg px-4 py-2 ${isUser ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-800'}`}>
-          <p className="text-sm">{message.text}</p>
+          <div className="flex justify-between items-start">
+            <p className="text-sm">{message.text}</p>
+            {!isUser && <VoiceOutput text={message.text} autoPlay={true} />}
+          </div>
           <p className={`text-xs mt-1 ${isUser ? 'text-blue-100' : 'text-gray-500'}`}>
             {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </p>
