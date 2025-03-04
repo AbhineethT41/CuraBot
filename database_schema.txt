@@ -40,22 +40,24 @@ Notes:
 
 Contains detailed information about doctors in the system.
 
-| Column        | Type         | Constraints       | Description                                  |
-|---------------|--------------|-------------------|----------------------------------------------|
-| id            | UUID         | PK, NOT NULL      | Unique identifier for the doctor             |
-| user_id       | UUID         | FK, NOT NULL      | Reference to Users table                     |
-| specialty_id  | UUID         | FK, NOT NULL      | Reference to Specialties table               |
-| image         | VARCHAR(255) |                   | URL to doctor's profile image                |
-| rating        | DECIMAL(3,2) |                   | Average rating (0.00-5.00)                  |
-| experience    | INTEGER      |                   | Years of experience                          |
-| location      | VARCHAR(255) | NOT NULL          | Doctor's practice location                   |
-| bio           | TEXT         |                   | Doctor's biographical information            |
-| created_at    | TIMESTAMP    | NOT NULL          | When the doctor profile was created          |
-| updated_at    | TIMESTAMP    | NOT NULL          | When the doctor profile was last updated     |
+| Column          | Type         | Constraints       | Description                                  |
+|-----------------|--------------|-------------------|----------------------------------------------|
+| id              | UUID         | PK, NOT NULL      | Unique identifier for the doctor             |
+| user_id         | UUID         | FK, NOT NULL      | Reference to Users table                     |
+| specialty_id    | UUID         | FK, NOT NULL      | Reference to Specialties table               |
+| image           | VARCHAR(255) |                   | URL to doctor's profile image                |
+| rating          | DECIMAL(3,2) |                   | Average rating (0.00-5.00)                  |
+| experience      | INTEGER      |                   | Years of experience                          |
+| location        | VARCHAR(255) | NOT NULL          | Doctor's practice location                   |
+| bio             | TEXT         |                   | Doctor's biographical information            |
+| calendar_enabled| BOOLEAN      | DEFAULT TRUE      | Whether Google Calendar integration is enabled|
+| created_at      | TIMESTAMP    | NOT NULL          | When the doctor profile was created          |
+| updated_at      | TIMESTAMP    | NOT NULL          | When the doctor profile was last updated     |
 
 Notes:
 - `user_id` references the Users table to link doctor profiles to user accounts
 - `specialty_id` references the Specialties table to indicate the doctor's area of expertise
+- `calendar_enabled` indicates whether the doctor has enabled Google Calendar integration for appointment syncing (enabled by default)
 
 ---
 
@@ -178,8 +180,7 @@ Maps symptoms to the most appropriate medical specialties.
 Notes:
 - `symptom_id` references the Symptoms table
 - `specialty_id` references the Specialties table
-- The `weight` field determines the strength of the association (higher = stronger)
-- A symptom can be mapped to multiple specialties with different weights
+- The `weight` field indicates the strength of the association between the symptom and specialty
 
 ---
 
