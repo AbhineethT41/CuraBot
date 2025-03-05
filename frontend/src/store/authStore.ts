@@ -47,12 +47,15 @@ export const useAuthStore = create<AuthState>((set) => ({
         // Add a small delay to ensure the session is properly set in the store
         setTimeout(async () => {
           try {
-            await api.post('/auth/profile', {
+            // Check if user metadata exists before trying to access it
+            const userData = {
               first_name: session.user.user_metadata?.first_name || '',
               last_name: session.user.user_metadata?.last_name || '',
               phone: session.user.user_metadata?.phone || '',
               role: session.user.user_metadata?.user_type || 'patient'
-            });
+            };
+            
+            await api.post('/auth/profile', userData);
             console.log('User profile synced with database');
           } catch (profileError) {
             console.error('Error syncing user profile:', profileError);
@@ -74,18 +77,21 @@ export const useAuthStore = create<AuthState>((set) => ({
           });
           
           // If user just signed up or signed in, create/update their profile in database
-          // Add a delay to ensure the session is properly set before making API calls
-          // event === 'SIGNED_UP' ||
-          if ((event === 'SIGNED_IN' ||  event === 'TOKEN_REFRESHED') && session) {
+          if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
             setTimeout(async () => {
               try {
-                await api.post('/auth/profile', {
-                  first_name: session.user.user_metadata?.first_name || '',
-                  last_name: session.user.user_metadata?.last_name || '',
-                  phone: session.user.user_metadata?.phone || '',
-                  role: session.user.user_metadata?.user_type || 'patient'
-                });
-                console.log(`User profile updated in database after ${event}`);
+                // Check if user metadata exists before trying to access it
+                if (session.user) {
+                  const userData = {
+                    first_name: session.user.user_metadata?.first_name || '',
+                    last_name: session.user.user_metadata?.last_name || '',
+                    phone: session.user.user_metadata?.phone || '',
+                    role: session.user.user_metadata?.user_type || 'patient'
+                  };
+                  
+                  await api.post('/auth/profile', userData);
+                  console.log(`User profile updated in database after ${event}`);
+                }
               } catch (profileError) {
                 console.error(`Error updating user profile after ${event}:`, profileError);
                 // Don't throw error here, just log it
@@ -99,11 +105,13 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ loading: false });
       
       // Return unsubscribe function for cleanup
-      return () => subscription.unsubscribe();
+      return () => {
+        subscription.unsubscribe();
+      };
     } catch (error: any) {
       console.error('Auth initialization error:', error);
       set({ error: error.message, loading: false });
-      return () => {}; // Return empty function in case of error
+      return () => {}; // Return empty cleanup function
     }
   },
 
@@ -111,34 +119,39 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       set({ loading: true, error: null });
       
+      // Register with Supabase Auth
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: userData,
-        },
+          data: {
+            first_name: userData.first_name,
+            last_name: userData.last_name,
+            phone: userData.phone || '',
+            user_type: userData.role || 'patient'
+          }
+        }
       });
       
       if (error) throw error;
       
-      // If user was created successfully and auto-confirmed (in development)
-      if (data.user && data.session) {
-        set({ 
-          user: data.user,
-          session: data.session,
-        });
-        
-        // Create user profile in database
+      // Update local state with the new user
+      set({ 
+        user: data.user,
+        session: data.session,
+      });
+      
+      // Create user profile in database
+      if (data.user) {
         try {
           await api.post('/auth/profile', {
-            first_name: userData.first_name || '',
-            last_name: userData.last_name || '',
+            first_name: userData.first_name,
+            last_name: userData.last_name,
             phone: userData.phone || '',
-            role: userData.user_type || 'patient'
+            role: userData.role || 'patient'
           });
-          console.log('User profile created in database after signup');
         } catch (profileError) {
-          console.error('Error creating user profile after signup:', profileError);
+          console.error('Error creating user profile:', profileError);
           // Don't throw error here, just log it
         }
       }
@@ -151,36 +164,24 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ loading: false });
     }
   },
-
+  
   signIn: async (email, password) => {
     try {
       set({ loading: true, error: null });
       
+      // Sign in with Supabase Auth
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
-        password,
+        password
       });
       
       if (error) throw error;
       
+      // Update local state with the user
       set({ 
         user: data.user,
         session: data.session,
       });
-      
-      // Ensure user profile exists in database
-      try {
-        await api.post('/auth/profile', {
-          first_name: data.user.user_metadata?.first_name || '',
-          last_name: data.user.user_metadata?.last_name || '',
-          phone: data.user.user_metadata?.phone || '',
-          role: data.user.user_metadata?.user_type || 'patient'
-        });
-        console.log('User profile synced with database after signin');
-      } catch (profileError) {
-        console.error('Error syncing user profile after signin:', profileError);
-        // Don't throw error here, just log it
-      }
       
       return data;
     } catch (error: any) {
@@ -190,15 +191,17 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ loading: false });
     }
   },
-
+  
   signOut: async () => {
     try {
       set({ loading: true, error: null });
       
+      // Sign out with Supabase Auth
       const { error } = await supabase.auth.signOut();
       
       if (error) throw error;
       
+      // Clear user state
       set({ 
         user: null,
         session: null,
@@ -210,14 +213,12 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ loading: false });
     }
   },
-
+  
   resetPassword: async (email) => {
     try {
       set({ loading: true, error: null });
       
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
       
       if (error) throw error;
     } catch (error: any) {
@@ -227,7 +228,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ loading: false });
     }
   },
-
+  
   updateProfile: async (data) => {
     try {
       set({ loading: true, error: null });

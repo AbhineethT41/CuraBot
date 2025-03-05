@@ -1,300 +1,193 @@
 import { create } from 'zustand';
-import { Doctor } from '../components/appointments/DoctorCard';
+import { appointmentService } from '../services/appointmentService';
 import { Appointment } from '../components/appointments/AppointmentCard';
+import { Doctor } from '../components/appointments/DoctorCard';
 
-// Mock data for doctors
-const mockDoctors: Doctor[] = [
-  {
-    id: 'd1',
-    name: 'Dr. Sarah Johnson',
-    specialty: 'Cardiology',
-    image: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80',
-    rating: 4.8,
-    experience: 12,
-    location: 'Main Hospital, Floor 3',
-    phone: '(555) 123-4567',
-    availableSlots: [
-      {
-        date: '2025-06-10',
-        slots: ['09:00 AM', '10:30 AM', '02:00 PM', '04:30 PM'],
-      },
-      {
-        date: '2025-06-11',
-        slots: ['11:00 AM', '01:30 PM', '03:00 PM'],
-      },
-      {
-        date: '2025-06-12',
-        slots: ['09:30 AM', '11:30 AM', '02:30 PM'],
-      },
-    ],
-  },
-  {
-    id: 'd2',
-    name: 'Dr. Michael Chen',
-    specialty: 'Neurology',
-    image: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80',
-    rating: 4.9,
-    experience: 15,
-    location: 'Medical Center, Floor 2',
-    phone: '(555) 234-5678',
-    availableSlots: [
-      {
-        date: '2025-06-10',
-        slots: ['08:30 AM', '11:00 AM', '03:30 PM'],
-      },
-      {
-        date: '2025-06-11',
-        slots: ['10:00 AM', '01:00 PM', '04:00 PM'],
-      },
-      {
-        date: '2025-06-12',
-        slots: ['09:00 AM', '12:30 PM', '03:00 PM'],
-      },
-    ],
-  },
-  {
-    id: 'd3',
-    name: 'Dr. Emily Rodriguez',
-    specialty: 'Dermatology',
-    image: 'https://images.unsplash.com/photo-1594824476967-48c8b964273f?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80',
-    rating: 4.7,
-    experience: 8,
-    location: 'Medical Plaza, Floor 1',
-    phone: '(555) 345-6789',
-    availableSlots: [
-      {
-        date: '2025-06-10',
-        slots: ['10:00 AM', '01:30 PM', '03:30 PM'],
-      },
-      {
-        date: '2025-06-11',
-        slots: ['09:30 AM', '12:00 PM', '02:30 PM'],
-      },
-      {
-        date: '2025-06-12',
-        slots: ['11:00 AM', '02:00 PM', '04:00 PM'],
-      },
-    ],
-  },
-  {
-    id: 'd4',
-    name: 'Dr. James Wilson',
-    specialty: 'Orthopedics',
-    image: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80',
-    rating: 4.6,
-    experience: 10,
-    location: 'Main Hospital, Floor 2',
-    phone: '(555) 456-7890',
-    availableSlots: [
-      {
-        date: '2025-06-10',
-        slots: ['09:30 AM', '11:30 AM', '02:30 PM'],
-      },
-      {
-        date: '2025-06-11',
-        slots: ['10:30 AM', '01:30 PM', '03:30 PM'],
-      },
-      {
-        date: '2025-06-12',
-        slots: ['08:30 AM', '12:00 PM', '04:30 PM'],
-      },
-    ],
-  },
-  {
-    id: 'd5',
-    name: 'Dr. Olivia Thompson',
-    specialty: 'Gastroenterology',
-    image: 'https://images.unsplash.com/photo-1651008376811-b90baee60c1f?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80',
-    rating: 4.8,
-    experience: 11,
-    location: 'Medical Center, Floor 3',
-    phone: '(555) 567-8901',
-    availableSlots: [
-      {
-        date: '2025-06-10',
-        slots: ['08:00 AM', '10:00 AM', '01:00 PM', '03:00 PM'],
-      },
-      {
-        date: '2025-06-11',
-        slots: ['09:00 AM', '11:30 AM', '02:30 PM'],
-      },
-      {
-        date: '2025-06-12',
-        slots: ['10:30 AM', '01:30 PM', '04:00 PM'],
-      },
-    ],
-  },
-  {
-    id: 'd6',
-    name: 'Dr. Robert Kim',
-    specialty: 'Pulmonology',
-    image: 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80',
-    rating: 4.7,
-    experience: 9,
-    location: 'Medical Plaza, Floor 2',
-    phone: '(555) 678-9012',
-    availableSlots: [
-      {
-        date: '2025-06-10',
-        slots: ['09:00 AM', '11:00 AM', '02:00 PM'],
-      },
-      {
-        date: '2025-06-11',
-        slots: ['10:00 AM', '12:30 PM', '03:30 PM'],
-      },
-      {
-        date: '2025-06-12',
-        slots: ['08:30 AM', '01:00 PM', '04:30 PM'],
-      },
-    ],
-  },
-];
-
-// Mock data for appointments
-const mockAppointments: Appointment[] = [
-  {
-    id: 'a1',
-    doctorId: 'd1',
-    doctorName: 'Dr. Sarah Johnson',
-    doctorSpecialty: 'Cardiology',
-    doctorImage: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80',
-    date: '2025-06-05',
-    time: '10:30 AM',
-    status: 'upcoming',
-    location: 'Main Hospital, Floor 3',
-    notes: 'Follow-up appointment for heart palpitations',
-  },
-  {
-    id: 'a2',
-    doctorId: 'd3',
-    doctorName: 'Dr. Emily Rodriguez',
-    doctorSpecialty: 'Dermatology',
-    doctorImage: 'https://images.unsplash.com/photo-1594824476967-48c8b964273f?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80',
-    date: '2025-05-20',
-    time: '09:00 AM',
-    status: 'completed',
-    location: 'Medical Plaza, Floor 1',
-  },
-  {
-    id: 'a3',
-    doctorId: 'd2',
-    doctorName: 'Dr. Michael Chen',
-    doctorSpecialty: 'Neurology',
-    doctorImage: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80',
-    date: '2025-05-15',
-    time: '02:30 PM',
-    status: 'cancelled',
-    location: 'Medical Center, Floor 2',
-  },
-];
-
-interface AppointmentState {
+interface AppointmentStore {
   doctors: Doctor[];
   appointments: Appointment[];
-  filteredDoctors: Doctor[];
   isLoading: boolean;
+  error: string | null;
+  selectedSpecialty: string | null;
   
-  // Actions
-  getDoctorsBySpecialty: (specialty: string) => Doctor[];
-  bookAppointment: (doctorId: string, date: string, time: string, notes: string) => void;
-  cancelAppointment: (appointmentId: string) => void;
-  rescheduleAppointment: (appointmentId: string, newDate: string, newTime: string) => void;
+  // Fetch doctors
+  fetchDoctors: () => Promise<void>;
+  
+  // Get doctors by specialty
+  getDoctorsBySpecialty: (specialty: string) => Promise<void>;
+  
+  // Fetch appointments
+  fetchAppointments: () => Promise<void>;
+  
+  // Get upcoming appointments
   getUpcomingAppointments: () => Appointment[];
+  
+  // Get past appointments
   getPastAppointments: () => Appointment[];
-  getDoctorById: (id: string) => Doctor | undefined;
+  
+  // Book a new appointment
+  bookAppointment: (doctorId: string, date: string, time: string, notes?: string) => Promise<void>;
+  
+  // Cancel an appointment
+  cancelAppointment: (appointmentId: string) => Promise<void>;
+  
+  // Reschedule an appointment
+  rescheduleAppointment: (appointmentId: string, newDate: string, newTime: string) => Promise<void>;
+  
+  // Get available slots for a doctor
+  getAvailableSlots: (doctorId: string) => Promise<{ date: string; slots: string[] }[]>;
 }
 
-export const useAppointmentStore = create<AppointmentState>((set, get) => ({
-  doctors: mockDoctors,
-  appointments: mockAppointments,
-  filteredDoctors: [],
+export const useAppointmentStore = create<AppointmentStore>((set, get) => ({
+  doctors: [],
+  appointments: [],
   isLoading: false,
+  error: null,
+  selectedSpecialty: null,
   
-  getDoctorsBySpecialty: (specialty: string) => {
-    const filteredDocs = specialty
-      ? get().doctors.filter(doc => doc.specialty === specialty)
-      : get().doctors;
-    
-    set({ filteredDoctors: filteredDocs });
-    return filteredDocs;
+  // Fetch doctors
+  fetchDoctors: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const doctors = await appointmentService.getDoctors();
+      set({ doctors, isLoading: false, selectedSpecialty: null });
+    } catch (error) {
+      set({ error: 'Failed to fetch doctors', isLoading: false });
+      console.error('Error fetching doctors:', error);
+    }
   },
   
-  bookAppointment: (doctorId, date, time, notes) => {
-    set({ isLoading: true });
-    
-    // Simulate API call
-    setTimeout(() => {
-      const doctor = get().doctors.find(doc => doc.id === doctorId);
-      
-      if (doctor) {
-        const newAppointment: Appointment = {
-          id: `a${Math.random().toString(36).substring(2, 9)}`,
-          doctorId,
-          doctorName: doctor.name,
-          doctorSpecialty: doctor.specialty,
-          doctorImage: doctor.image,
-          date,
-          time,
-          status: 'upcoming',
-          location: doctor.location,
-          notes: notes || undefined,
-        };
-        
-        set(state => ({
-          appointments: [newAppointment, ...state.appointments],
-          isLoading: false,
-        }));
+  // Get doctors by specialty
+  getDoctorsBySpecialty: async (specialty: string) => {
+    set({ isLoading: true, error: null, selectedSpecialty: specialty });
+    try {
+      const doctors = await appointmentService.getDoctorsBySpecialty(specialty);
+      // Only update state if doctors were found
+      if (doctors.length > 0) {
+        set({ doctors, isLoading: false });
       } else {
-        set({ isLoading: false });
+        set({ 
+          error: `No doctors found for specialty: ${specialty}`, 
+          isLoading: false,
+          doctors: [] 
+        });
       }
-    }, 1000);
+    } catch (error) {
+      set({ 
+        error: `Failed to fetch doctors for specialty: ${specialty}`, 
+        isLoading: false 
+      });
+      console.error(`Error fetching doctors for specialty ${specialty}:`, error);
+    }
   },
   
-  cancelAppointment: (appointmentId) => {
-    set({ isLoading: true });
-    
-    // Simulate API call
-    setTimeout(() => {
-      set(state => ({
-        appointments: state.appointments.map(appointment =>
+  // Fetch appointments
+  fetchAppointments: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const appointments = await appointmentService.getAppointments();
+      set({ appointments, isLoading: false });
+    } catch (error) {
+      set({ error: 'Failed to fetch appointments', isLoading: false });
+      console.error('Error fetching appointments:', error);
+    }
+  },
+  
+  // Get upcoming appointments
+  getUpcomingAppointments: () => {
+    return get().appointments.filter(
+      (appointment) => appointment.status === 'upcoming' || appointment.status === 'confirmed'
+    );
+  },
+  
+  // Get past appointments
+  getPastAppointments: () => {
+    return get().appointments.filter(
+      (appointment) => appointment.status === 'completed' || appointment.status === 'cancelled'
+    );
+  },
+  
+  // Book a new appointment
+  bookAppointment: async (doctorId: string, date: string, time: string, notes?: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const newAppointment = await appointmentService.bookAppointment(doctorId, date, time, notes);
+      set((state) => ({
+        appointments: [...state.appointments, newAppointment],
+        isLoading: false,
+      }));
+    } catch (error) {
+      set({ error: 'Failed to book appointment', isLoading: false });
+      console.error('Error booking appointment:', error);
+      throw error; // Re-throw to handle in UI
+    }
+  },
+  
+  // Cancel an appointment
+  cancelAppointment: async (appointmentId: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      await appointmentService.cancelAppointment(appointmentId);
+      set((state) => ({
+        appointments: state.appointments.map((appointment) =>
           appointment.id === appointmentId
             ? { ...appointment, status: 'cancelled' }
             : appointment
         ),
         isLoading: false,
       }));
-    }, 1000);
+    } catch (error) {
+      set({ error: 'Failed to cancel appointment', isLoading: false });
+      console.error('Error cancelling appointment:', error);
+      throw error; // Re-throw to handle in UI
+    }
   },
   
-  rescheduleAppointment: (appointmentId, newDate, newTime) => {
-    set({ isLoading: true });
-    
-    // Simulate API call
-    setTimeout(() => {
-      set(state => ({
-        appointments: state.appointments.map(appointment =>
+  // Reschedule an appointment
+  rescheduleAppointment: async (appointmentId: string, newDate: string, newTime: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const updatedAppointment = await appointmentService.rescheduleAppointment(
+        appointmentId,
+        newDate,
+        newTime
+      );
+      set((state) => ({
+        appointments: state.appointments.map((appointment) =>
           appointment.id === appointmentId
-            ? { ...appointment, date: newDate, time: newTime }
+            ? { ...updatedAppointment }
             : appointment
         ),
         isLoading: false,
       }));
-    }, 1000);
+    } catch (error) {
+      set({ error: 'Failed to reschedule appointment', isLoading: false });
+      console.error('Error rescheduling appointment:', error);
+      throw error; // Re-throw to handle in UI
+    }
   },
   
-  getUpcomingAppointments: () => {
-    return get().appointments.filter(
-      appointment => appointment.status === 'upcoming'
-    );
-  },
-  
-  getPastAppointments: () => {
-    return get().appointments.filter(
-      appointment => appointment.status === 'completed' || appointment.status === 'cancelled'
-    );
-  },
-  
-  getDoctorById: (id) => {
-    return get().doctors.find(doctor => doctor.id === id);
+  // Get available slots for a doctor
+  getAvailableSlots: async (doctorId: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const slots = await appointmentService.getAvailableSlots(doctorId);
+      
+      // Update the doctor's available slots in the store
+      set((state) => ({
+        doctors: state.doctors.map((doctor) =>
+          doctor.id === doctorId
+            ? { ...doctor, availableSlots: slots }
+            : doctor
+        ),
+        isLoading: false,
+      }));
+      
+      return slots;
+    } catch (error) {
+      set({ error: 'Failed to fetch available slots', isLoading: false });
+      console.error('Error fetching available slots:', error);
+      return []; // Return empty array on error
+    }
   },
 }));

@@ -60,6 +60,75 @@ npm start
 - `GET /api/auth/me` - Get current user profile
 - `POST /api/auth/doctor-profile` - Create doctor profile
 
+### Users
+
+- `GET /api/users` - Get all users (admin only)
+- `GET /api/users/:id` - Get user by ID
+- `PUT /api/users/:id` - Update user
+- `DELETE /api/users/:id` - Delete user (admin only)
+- `GET /api/users/role/:role` - Get users by role (admin only)
+
+### Doctors
+
+- `GET /api/doctors` - Get all doctors
+- `GET /api/doctors/:id` - Get doctor by ID
+- `GET /api/doctors/specialty/:specialtyId` - Get doctors by specialty
+- `GET /api/doctors/available` - Get available doctors
+- `POST /api/doctors` - Create a doctor profile (admin only)
+- `PUT /api/doctors/:id` - Update a doctor profile
+- `DELETE /api/doctors/:id` - Delete a doctor profile (admin only)
+
+### Appointments
+
+- `GET /api/appointments` - Get all appointments for the authenticated user
+- `GET /api/appointments/:id` - Get appointment by ID
+- `POST /api/appointments` - Create a new appointment
+- `PUT /api/appointments/:id` - Update an appointment
+- `DELETE /api/appointments/:id` - Cancel an appointment
+- `GET /api/appointments/doctor/:doctorId` - Get appointments for a doctor
+- `GET /api/appointments/user/:userId` - Get appointments for a user
+- `GET /api/appointments/available/:doctorId` - Get available time slots for a doctor
+
+### Chatbot
+
+- `POST /api/chatbot/message` - Send a message to the chatbot
+- `POST /api/chatbot/analyze-symptoms` - Analyze symptoms and get doctor recommendations
+
+### Notifications
+
+- `GET /api/notifications` - Get notifications for the authenticated user
+- `PUT /api/notifications/:id/read` - Mark a notification as read
+- `DELETE /api/notifications/:id` - Delete a notification
+
+### Messages
+
+- `GET /api/messages/conversations` - Get all conversations for the authenticated user
+- `GET /api/messages/conversation/:conversationId` - Get messages in a conversation
+- `POST /api/messages/send` - Send a message
+- `POST /api/messages/conversation` - Create a new conversation
+- `PUT /api/messages/read/:conversationId` - Mark messages in a conversation as read
+- `GET /api/messages/unread` - Get count of unread messages
+
+### Specialties
+
+- `GET /api/specialties` - Get all specialties
+- `GET /api/specialties/:id` - Get a specialty by ID
+- `POST /api/specialties` - Create a new specialty (admin only)
+- `PUT /api/specialties/:id` - Update a specialty (admin only)
+- `DELETE /api/specialties/:id` - Delete a specialty (admin only)
+- `GET /api/specialties/symptom/:symptomId` - Get specialties related to a symptom
+
+### Symptoms
+
+- `GET /api/symptoms` - Get all symptoms
+- `GET /api/symptoms/:id` - Get a symptom by ID
+- `GET /api/symptoms/search` - Search symptoms by name or keywords
+- `GET /api/symptoms/:id/specialties` - Get specialties related to a symptom
+- `POST /api/symptoms` - Create a new symptom (admin only)
+- `PUT /api/symptoms/:id` - Update a symptom (admin only)
+- `DELETE /api/symptoms/:id` - Delete a symptom (admin only)
+- `POST /api/symptoms/map-specialty` - Map a symptom to a specialty with a weight (admin only)
+
 ### Webhooks
 
 - `POST /api/webhooks/supabase` - Handle Supabase authentication events

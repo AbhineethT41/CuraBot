@@ -1,23 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { X, Calendar, Clock } from 'lucide-react';
 import Button from '../ui/Button';
-import { Doctor } from './DoctorCard';
+import { Appointment } from './AppointmentCard';
 import { useAppointmentStore } from '../../store/appointmentStore';
 
-interface BookingModalProps {
-  doctor: Doctor;
+interface RescheduleModalProps {
+  appointment: Appointment;
   onClose: () => void;
-  onBookAppointment: (doctorId: string, date: string, time: string, notes: string) => void;
+  onReschedule: (appointmentId: string, newDate: string, newTime: string) => void;
 }
 
-const BookingModal: React.FC<BookingModalProps> = ({
-  doctor,
+const RescheduleModal: React.FC<RescheduleModalProps> = ({
+  appointment,
   onClose,
-  onBookAppointment,
+  onReschedule,
 }) => {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  const [notes, setNotes] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [availableSlots, setAvailableSlots] = useState<{date: string, slots: string[]}[]>([]);
   
@@ -28,7 +27,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
     const fetchSlots = async () => {
       setIsLoading(true);
       try {
-        const slots = await getAvailableSlots(doctor.id);
+        const slots = await getAvailableSlots(appointment.doctorId);
         setAvailableSlots(slots);
       } catch (error) {
         console.error('Error fetching available slots:', error);
@@ -38,14 +37,14 @@ const BookingModal: React.FC<BookingModalProps> = ({
     };
     
     fetchSlots();
-  }, [doctor.id, getAvailableSlots]);
+  }, [appointment.doctorId, getAvailableSlots]);
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     if (selectedDate && selectedTime) {
       setIsLoading(true);
-      onBookAppointment(doctor.id, selectedDate, selectedTime, notes);
+      onReschedule(appointment.id, selectedDate, selectedTime);
     }
   };
   
@@ -79,20 +78,26 @@ const BookingModal: React.FC<BookingModalProps> = ({
             <div className="sm:flex sm:items-start">
               <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
                 <h3 className="text-lg leading-6 font-medium text-gray-900">
-                  Book an Appointment
+                  Reschedule Appointment
                 </h3>
                 
                 <div className="mt-4">
                   <div className="flex items-center mb-4">
                     <img
-                      src={doctor.image}
-                      alt={doctor.name}
+                      src={appointment.doctorImage}
+                      alt={appointment.doctorName}
                       className="w-12 h-12 rounded-full object-cover mr-3"
                     />
                     <div>
-                      <h4 className="font-medium">{doctor.name}</h4>
-                      <p className="text-sm text-gray-600">{doctor.specialty}</p>
+                      <h4 className="font-medium">{appointment.doctorName}</h4>
+                      <p className="text-sm text-gray-600">{appointment.doctorSpecialty}</p>
                     </div>
+                  </div>
+                  
+                  <div className="mb-4">
+                    <p className="text-sm text-gray-600">
+                      Current appointment: {appointment.date} at {appointment.time}
+                    </p>
                   </div>
                   
                   {isLoading && !availableSlots.length ? (
@@ -103,7 +108,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
                     <form onSubmit={handleSubmit}>
                       <div className="mb-4">
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          <Calendar size={16} className="inline mr-1" /> Select Date
+                          <Calendar size={16} className="inline mr-1" /> Select New Date
                         </label>
                         <div className="grid grid-cols-3 gap-2">
                           {availableSlots.map((slot) => (
@@ -129,7 +134,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
                       {selectedDate && (
                         <div className="mb-4">
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            <Clock size={16} className="inline mr-1" /> Select Time
+                            <Clock size={16} className="inline mr-1" /> Select New Time
                           </label>
                           <div className="grid grid-cols-4 gap-2">
                             {getAvailableTimesForDate(selectedDate).map((time) => (
@@ -150,20 +155,6 @@ const BookingModal: React.FC<BookingModalProps> = ({
                         </div>
                       )}
                       
-                      <div className="mb-4">
-                        <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
-                          Notes (Optional)
-                        </label>
-                        <textarea
-                          id="notes"
-                          rows={3}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="Any specific concerns or information for the doctor..."
-                          value={notes}
-                          onChange={(e) => setNotes(e.target.value)}
-                        ></textarea>
-                      </div>
-                      
                       <div className="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
                         <Button
                           type="submit"
@@ -172,7 +163,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
                           disabled={!selectedDate || !selectedTime || isLoading}
                           className="w-full sm:ml-3 sm:w-auto"
                         >
-                          Confirm Booking
+                          Confirm Reschedule
                         </Button>
                         <Button
                           type="button"
@@ -195,4 +186,4 @@ const BookingModal: React.FC<BookingModalProps> = ({
   );
 };
 
-export default BookingModal;
+export default RescheduleModal;

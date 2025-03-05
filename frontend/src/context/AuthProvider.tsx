@@ -1,59 +1,76 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useAuthStore } from '../store/authStore';
+import { User, Session } from '@supabase/supabase-js';
 
-// Create auth context
-const AuthContext = createContext<ReturnType<typeof useAuthStore.getState> | undefined>(undefined);
+interface AuthContextType {
+  user: User | null;
+  session: Session | null;
+  loading: boolean;
+  error: string | null;
+  signUp: (email: string, password: string, userData: any) => Promise<any>;
+  signIn: (email: string, password: string) => Promise<any>;
+  signOut: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  updateProfile: (data: any) => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  session: null,
+  loading: true,
+  error: null,
+  signUp: async () => ({}),
+  signIn: async () => ({}),
+  signOut: async () => {},
+  resetPassword: async () => {},
+  updateProfile: async () => {},
+});
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [initialized, setInitialized] = useState(false);
   const authStore = useAuthStore();
-  const [isInitialized, setIsInitialized] = useState(false);
   
   useEffect(() => {
-    // Initialize auth state when component mounts
-    let unsubscribe: (() => void) | undefined;
+    let cleanup: (() => void) | undefined;
     
     const initializeAuth = async () => {
       try {
-        const unsub = await authStore.initialize();
-        unsubscribe = unsub;
-        setIsInitialized(true);
+        // Initialize auth state from Supabase
+        cleanup = await authStore.initialize();
+        setInitialized(true);
       } catch (error) {
         console.error('Failed to initialize auth:', error);
-        setIsInitialized(true); // Still set to true so we don't block rendering
+        setInitialized(true); // Still mark as initialized even on error
       }
     };
     
     initializeAuth();
     
-    // Clean up subscription when component unmounts
+    // Clean up auth listener on unmount
     return () => {
-      if (unsubscribe) {
-        unsubscribe();
+      if (cleanup) {
+        cleanup();
       }
     };
-  }, []); // Remove authStore from dependencies to prevent infinite loops
+  }, []);
   
-  // Show loading state while initializing
-  if (!isInitialized) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
+  const value = {
+    user: authStore.user,
+    session: authStore.session,
+    loading: authStore.loading || !initialized,
+    error: authStore.error,
+    signUp: authStore.signUp,
+    signIn: authStore.signIn,
+    signOut: authStore.signOut,
+    resetPassword: authStore.resetPassword,
+    updateProfile: authStore.updateProfile,
+  };
   
   return (
-    <AuthContext.Provider value={authStore}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-// Custom hook to use auth context
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
+export const useAuth = () => useContext(AuthContext);

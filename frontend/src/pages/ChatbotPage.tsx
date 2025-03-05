@@ -1,12 +1,13 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Volume2, VolumeX } from 'lucide-react';
+import { X, Volume2, VolumeX, User } from 'lucide-react';
 import ChatMessage from '../components/chatbot/ChatMessage';
 import ChatInput from '../components/chatbot/ChatInput';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import { useChatStore } from '../store/chatStore';
 import { useAppointmentStore } from '../store/appointmentStore';
+import { useAuth } from '../context/AuthProvider';
 
 // Create a context for voice settings
 export const VoiceContext = React.createContext({
@@ -18,12 +19,14 @@ const ChatbotPage: React.FC = () => {
   const navigate = useNavigate();
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+  const { user } = useAuth();
   
   const {
     messages,
     isLoading,
     currentSymptoms,
     recommendedSpecialty,
+    recommendedDoctors,
     sendMessage,
     resetChat,
     removeSymptom,
@@ -37,8 +40,17 @@ const ChatbotPage: React.FC = () => {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Check authentication
+  useEffect(() => {
+    if (!user) {
+      // If not authenticated, redirect to login
+      navigate('/signin', { state: { from: '/chatbot' } });
+    }
+  }, [user, navigate]);
   
   const handleSendMessage = (text: string) => {
+    if (!text.trim()) return;
     sendMessage(text);
   };
   
@@ -60,6 +72,19 @@ const ChatbotPage: React.FC = () => {
       window.speechSynthesis?.cancel();
     }
   };
+
+  const handleBookAppointment = (doctorId: string) => {
+    navigate(`/appointments?doctor=${doctorId}`);
+  };
+  
+  // If not authenticated, show loading state
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
   
   return (
     <VoiceContext.Provider value={{ isVoiceEnabled, toggleVoice }}>
@@ -128,6 +153,43 @@ const ChatbotPage: React.FC = () => {
               </div>
             </div>
           )}
+
+          {/* Recommended Doctors */}
+          {recommendedDoctors.length > 0 && (
+            <div className="bg-blue-50 p-3 border-b border-blue-200">
+              <p className="text-sm font-medium text-blue-800 mb-2">Recommended Doctors:</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {recommendedDoctors.slice(0, 2).map((doctor) => (
+                  <div key={doctor.id} className="bg-white p-2 rounded border border-blue-100 flex items-center">
+                    <div className="bg-blue-100 p-2 rounded-full mr-2">
+                      <User size={16} className="text-blue-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">{doctor.first_name} {doctor.last_name}</p>
+                      <p className="text-xs text-gray-500">{doctor.specialty}</p>
+                    </div>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => handleBookAppointment(doctor.id)}
+                    >
+                      Book
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              {recommendedDoctors.length > 2 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleViewDoctors}
+                  className="mt-1 text-blue-600"
+                >
+                  View all {recommendedDoctors.length} doctors
+                </Button>
+              )}
+            </div>
+          )}
           
           {/* Chat messages */}
           <div
@@ -137,6 +199,15 @@ const ChatbotPage: React.FC = () => {
             {messages.map((message) => (
               <ChatMessage key={message.id} message={message} />
             ))}
+            {isLoading && (
+              <div className="flex justify-center my-4">
+                <div className="animate-pulse flex space-x-2">
+                  <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                  <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                  <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                </div>
+              </div>
+            )}
           </div>
           
           {/* Chat input */}

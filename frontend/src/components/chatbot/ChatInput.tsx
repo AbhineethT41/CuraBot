@@ -1,103 +1,192 @@
-import React, { useState, useEffect } from 'react';
-import { Send } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Send, Mic, MicOff } from 'lucide-react';
 import Button from '../ui/Button';
-import VoiceInput from './VoiceInput';
+
+// Add SpeechRecognition type definitions
+interface SpeechRecognitionResult {
+  transcript: string;
+  confidence: number;
+  isFinal?: boolean;
+}
+
+interface SpeechRecognitionResultList {
+  length: number;
+  item(index: number): SpeechRecognitionResult;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList;
+  resultIndex: number;
+  error: any;
+}
+
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  maxAlternatives: number;
+  start(): void;
+  stop(): void;
+  abort(): void;
+  onresult: (event: SpeechRecognitionEvent) => void;
+  onerror: (event: SpeechRecognitionEvent) => void;
+  onend: () => void;
+  onstart: () => void;
+}
+
+// Add global type declarations
+declare global {
+  interface Window {
+    SpeechRecognition: new () => SpeechRecognition;
+    webkitSpeechRecognition: new () => SpeechRecognition;
+  }
+}
 
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
-  isLoading?: boolean;
+  isLoading: boolean;
 }
 
-const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading = false }) => {
+const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
   const [message, setMessage] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const [interimResult, setInterimResult] = useState('');
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
   
-  // Clear interim result when not listening
+  // Initialize speech recognition if available
   useEffect(() => {
-    if (!isListening) {
-      setInterimResult('');
-    }
-  }, [isListening]);
-  
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // If we're listening, send the interim result
-    if (isListening) {
-      if (interimResult.trim() && !isLoading) {
-        onSendMessage(interimResult);
-        setInterimResult('');
-        setIsListening(false); // Stop listening after sending
+    if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+      const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognitionAPI();
+      
+      if (recognitionRef.current) {
+        recognitionRef.current.continuous = true;
+        recognitionRef.current.interimResults = true;
+        recognitionRef.current.lang = 'en-US';
+        
+        recognitionRef.current.onstart = () => {
+          setIsListening(true);
+        };
+        
+        recognitionRef.current.onend = () => {
+          setIsListening(false);
+        };
+        
+        recognitionRef.current.onresult = (event) => {
+          const transcript = Array.from(event.results)
+            .map(result => result[0])
+            .map(result => result.transcript)
+            .join('');
+          
+          setMessage(transcript);
+        };
+        
+        recognitionRef.current.onerror = (event) => {
+          console.error('Speech recognition error', event.error);
+          setIsListening(false);
+          setIsRecording(false);
+        };
       }
-    } else {
-      // Otherwise send the typed message
-      if (message.trim() && !isLoading) {
-        onSendMessage(message);
-        setMessage('');
-      }
     }
-  };
-  
-  const handleVoiceInput = (text: string) => {
-    // For final results from voice recognition
-    console.log('Final voice input received:', text);
     
-    // Automatically send the message after voice input
-    if (text.trim() && !isLoading) {
-      onSendMessage(text);
+    return () => {
+      if (recognitionRef.current && isRecording) {
+        recognitionRef.current.stop();
+      }
+    };
+  }, [isRecording]);
+  
+  const handleSendMessage = () => {
+    if (message.trim() && !isLoading) {
+      onSendMessage(message);
       setMessage('');
-      setInterimResult('');
+      
+      // Focus the input after sending
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
     }
   };
   
-  const handleInterimResult = (text: string) => {
-    // For interim results - display them in the input field
-    console.log('Interim result:', text);
-    setInterimResult(text);
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+  
+  const toggleRecording = () => {
+    if (!recognitionRef.current) return;
+    
+    if (isRecording) {
+      recognitionRef.current.stop();
+    } else {
+      try {
+        recognitionRef.current.start();
+      } catch (error) {
+        console.error('Error starting speech recognition:', error);
+        // If already started, stop and restart
+        recognitionRef.current.stop();
+        setTimeout(() => {
+          if (recognitionRef.current) {
+            recognitionRef.current.start();
+          }
+        }, 100);
+      }
+    }
+    
+    setIsRecording(!isRecording);
   };
   
   return (
-    <div className="border-t border-gray-200">
-      {/* Voice input status indicator */}
-      {isListening && (
-        <div className="px-4 pt-2 flex items-center">
-          <div className="w-2 h-2 rounded-full bg-red-500 mr-2 animate-pulse"></div>
-          <div className="text-sm text-gray-600">
-            <span className="font-medium">Listening: </span>
-            {interimResult || "Say something..."}
-          </div>
+    <div className="border-t border-gray-200 p-3 bg-white">
+      <div className="flex items-end space-x-2">
+        <div className="flex-grow relative">
+          <textarea
+            ref={inputRef}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Type your message..."
+            className="w-full border border-gray-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            rows={1}
+            style={{ minHeight: '44px', maxHeight: '120px' }}
+            disabled={isLoading}
+          />
+          
+          {isRecording && (
+            <div className="absolute right-3 top-2 flex items-center">
+              <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse mr-1"></div>
+              <span className="text-xs text-gray-500">Recording...</span>
+            </div>
+          )}
         </div>
-      )}
-      
-      <form onSubmit={handleSubmit} className="flex items-center p-4">
-        <VoiceInput 
-          onSpeechResult={handleVoiceInput}
-          onInterimResult={handleInterimResult}
-          isListening={isListening}
-          setIsListening={setIsListening}
-          disabled={isLoading}
-        />
-        <input
-          type="text"
-          value={isListening ? interimResult : message}
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder={isListening ? "Listening..." : "Type your message here..."}
-          className={`flex-grow mx-2 px-4 py-2 border rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${isListening ? 'border-red-300 bg-red-50' : 'border-gray-300'}`}
-          disabled={isLoading}
-          readOnly={isListening}
-        />
+        
+        {('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) && (
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon"
+            onClick={toggleRecording}
+            disabled={isLoading}
+            className={isRecording ? 'bg-red-100 text-red-600 hover:bg-red-200' : ''}
+          >
+            {isRecording ? <MicOff size={18} /> : <Mic size={18} />}
+          </Button>
+        )}
+        
         <Button
-          type="submit"
+          type="button"
           variant="primary"
-          className="rounded-l-none"
-          disabled={(!message.trim() && !interimResult.trim()) || isLoading}
-          isLoading={isLoading}
-          rightIcon={<Send size={16} />}
+          size="icon"
+          onClick={handleSendMessage}
+          disabled={!message.trim() || isLoading}
         >
-          Send
+          <Send size={18} />
         </Button>
-      </form>
+      </div>
     </div>
   );
 };

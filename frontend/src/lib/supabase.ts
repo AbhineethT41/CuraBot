@@ -17,7 +17,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: true
+    detectSessionInUrl: false, // Change to false to prevent issues with route changes
+    storageKey: 'curabot-auth-storage' // Add a unique storage key
   }
 });
 

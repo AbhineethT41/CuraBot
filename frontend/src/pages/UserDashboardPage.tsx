@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, User, MapPin, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardBody } from '../components/ui/Card';
@@ -7,19 +7,30 @@ import Badge from '../components/ui/Badge';
 import Input from '../components/ui/Input';
 import AppointmentCard from '../components/appointments/AppointmentCard';
 import { useAppointmentStore } from '../store/appointmentStore';
+import RescheduleModal from '../components/appointments/RescheduleModal';
+import { Appointment } from '../components/appointments/AppointmentCard';
 
 const UserDashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
   
   const { 
     appointments, 
     cancelAppointment, 
     rescheduleAppointment,
     getUpcomingAppointments,
-    getPastAppointments
+    getPastAppointments,
+    fetchAppointments,
+    isLoading
   } = useAppointmentStore();
+  
+  // Fetch appointments when component mounts
+  useEffect(() => {
+    fetchAppointments();
+  }, [fetchAppointments]);
   
   // Get upcoming and past appointments
   const upcomingAppointments = getUpcomingAppointments();
@@ -49,143 +60,163 @@ const UserDashboardPage: React.FC = () => {
     }
   };
   
-  // Handle appointment rescheduling (in a real app, this would open a rescheduling modal)
+  // Handle appointment rescheduling
   const handleRescheduleAppointment = (id: string) => {
-    // For demo purposes, we'll just show an alert
-    alert(`Reschedule functionality would open a modal for appointment ${id}`);
-    
-    // In a real implementation, you would open a modal to select a new date and time
-    // Then call rescheduleAppointment(id, newDate, newTime)
+    const appointment = appointments.find(app => app.id === id);
+    if (appointment) {
+      setSelectedAppointment(appointment);
+      setShowRescheduleModal(true);
+    }
+  };
+  
+  // Handle reschedule confirmation
+  const handleConfirmReschedule = (appointmentId: string, newDate: string, newTime: string) => {
+    rescheduleAppointment(appointmentId, newDate, newTime)
+      .then(() => {
+        setShowRescheduleModal(false);
+        setSelectedAppointment(null);
+      })
+      .catch(error => {
+        console.error('Error rescheduling appointment:', error);
+      });
+  };
+  
+  // Handle close modal
+  const handleCloseModal = () => {
+    setShowRescheduleModal(false);
+    setSelectedAppointment(null);
   };
   
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">My Dashboard</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Your Dashboard</h1>
         <p className="text-gray-600">
           Manage your appointments and health information
         </p>
       </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Sidebar */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left column - User info and quick actions */}
         <div className="lg:col-span-1">
           <Card className="mb-6">
             <CardHeader>
-              <h2 className="text-xl font-semibold">Profile</h2>
+              <h2 className="text-xl font-semibold">Your Information</h2>
             </CardHeader>
             <CardBody>
-              <div className="flex flex-col items-center mb-4">
-                <div className="w-24 h-24 rounded-full bg-blue-100 flex items-center justify-center mb-4">
-                  <User size={48} className="text-blue-500" />
+              <div className="flex items-center mb-4">
+                <div className="w-16 h-16 rounded-full bg-primary-100 flex items-center justify-center mr-4">
+                  <User size={32} className="text-primary-600" />
                 </div>
-                <div className="text-center">
+                <div>
                   <h3 className="font-semibold text-lg">John Doe</h3>
-                  <p className="text-gray-600 mt-1">Patient ID: P12345</p>
+                  <p className="text-gray-500">Patient</p>
                 </div>
               </div>
-              <Button variant="secondary" fullWidth className="mb-2">
-                Edit Profile
-              </Button>
-              <Button variant="secondary" fullWidth>
-                Health Records
-              </Button>
+              
+              <div className="space-y-2 text-sm text-gray-600">
+                <div className="flex items-center">
+                  <Calendar size={16} className="mr-2" />
+                  <span>DOB: January 15, 1985</span>
+                </div>
+                <div className="flex items-center">
+                  <MapPin size={16} className="mr-2" />
+                  <span>123 Main St, Anytown, USA</span>
+                </div>
+              </div>
+              
+              <div className="mt-4 space-y-2">
+                <Button
+                  variant="secondary"
+                  fullWidth
+                  onClick={() => navigate('/profile')}
+                >
+                  Edit Profile
+                </Button>
+                <Button
+                  variant="primary"
+                  fullWidth
+                  onClick={() => navigate('/appointments')}
+                >
+                  Book New Appointment
+                </Button>
+              </div>
             </CardBody>
           </Card>
           
           <Card>
             <CardHeader>
-              <h2 className="text-xl font-semibold">Quick Stats</h2>
+              <h2 className="text-xl font-semibold">Quick Actions</h2>
             </CardHeader>
             <CardBody>
-              <div className="space-y-4">
-                <div className="flex items-start">
-                  <Calendar size={20} className="text-blue-500 mt-0.5 mr-3" />
-                  <div>
-                    <p className="font-medium">Next Appointment</p>
-                    <p className="text-gray-600 text-sm">
-                      {upcomingAppointments.length > 0
-                        ? `${upcomingAppointments[0].date} at ${upcomingAppointments[0].time}`
-                        : 'No upcoming appointments'}
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start">
-                  <User size={20} className="text-blue-500 mt-0.5 mr-3" />
-                  <div>
-                    <p className="font-medium">Next Doctor</p>
-                    <p className="text-gray-600 text-sm">
-                      {upcomingAppointments.length > 0
-                        ? `${upcomingAppointments[0].doctorName}`
-                        : 'N/A'}
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start">
-                  <Clock size={20} className="text-blue-500 mt-0.5 mr-3" />
-                  <div>
-                    <p className="font-medium">Total Appointments</p>
-                    <p className="text-gray-600 text-sm">
-                      {appointments.length} ({upcomingAppointments.length} upcoming)
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start">
-                  <MapPin size={20} className="text-blue-500 mt-0.5 mr-3" />
-                  <div>
-                    <p className="font-medium">Primary Location</p>
-                    <p className="text-gray-600 text-sm">
-                      Main Hospital
-                    </p>
-                  </div>
-                </div>
+              <div className="space-y-2">
+                <Button
+                  variant="secondary"
+                  fullWidth
+                  onClick={() => navigate('/chatbot')}
+                >
+                  Talk to CuraBot
+                </Button>
+                <Button
+                  variant="secondary"
+                  fullWidth
+                  onClick={() => navigate('/messages')}
+                >
+                  Message Your Doctor
+                </Button>
+                <Button
+                  variant="secondary"
+                  fullWidth
+                  onClick={() => navigate('/records')}
+                >
+                  View Medical Records
+                </Button>
               </div>
             </CardBody>
           </Card>
         </div>
         
-        {/* Main content */}
-        <div className="lg:col-span-3">
+        {/* Right column - Appointments */}
+        <div className="lg:col-span-2">
           <Card>
-            <CardHeader>
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
-                <h2 className="text-xl font-semibold">My Appointments</h2>
-                <div className="flex space-x-2">
-                  <Button
-                    variant={activeTab === 'upcoming' ? 'primary' : 'secondary'}
-                    size="sm"
-                    onClick={() => setActiveTab('upcoming')}
-                  >
-                    Upcoming
-                  </Button>
-                  <Button
-                    variant={activeTab === 'past' ? 'primary' : 'secondary'}
-                    size="sm"
-                    onClick={() => setActiveTab('past')}
-                  >
-                    Past
-                  </Button>
-                </div>
+            <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+              <h2 className="text-xl font-semibold mb-2 sm:mb-0">Your Appointments</h2>
+              <div className="flex space-x-2">
+                <Button
+                  variant={activeTab === 'upcoming' ? 'primary' : 'secondary'}
+                  size="sm"
+                  onClick={() => setActiveTab('upcoming')}
+                >
+                  Upcoming
+                </Button>
+                <Button
+                  variant={activeTab === 'past' ? 'primary' : 'secondary'}
+                  size="sm"
+                  onClick={() => setActiveTab('past')}
+                >
+                  Past
+                </Button>
               </div>
-              
-              <div className="mt-4">
+            </CardHeader>
+            
+            <CardBody>
+              <div className="mb-4">
                 <Input
-                  placeholder="Search by doctor name or specialty..."
+                  placeholder="Search appointments..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   leftIcon={<Search size={18} className="text-gray-400" />}
                 />
               </div>
-            </CardHeader>
-            
-            <CardBody>
-              {activeTab === 'upcoming' && (
+              
+              {isLoading ? (
+                <div className="py-8 text-center">
+                  <p className="text-gray-500">Loading appointments...</p>
+                </div>
+              ) : activeTab === 'upcoming' ? (
                 <>
                   {filteredUpcoming.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
                       {filteredUpcoming.map((appointment) => (
                         <AppointmentCard
                           key={appointment.id}
@@ -196,22 +227,22 @@ const UserDashboardPage: React.FC = () => {
                       ))}
                     </div>
                   ) : (
-                    <div className="py-12 text-center">
-                      <p className="text-gray-500 text-lg mb-4">No upcoming appointments found.</p>
+                    <div className="py-8 text-center">
+                      <p className="text-gray-500">No upcoming appointments found.</p>
                       <Button
-                        onClick={() => navigate('/chatbot')}
+                        variant="primary"
+                        className="mt-4"
+                        onClick={() => navigate('/appointments')}
                       >
                         Book an Appointment
                       </Button>
                     </div>
                   )}
                 </>
-              )}
-              
-              {activeTab === 'past' && (
+              ) : (
                 <>
                   {filteredPast.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
                       {filteredPast.map((appointment) => (
                         <AppointmentCard
                           key={appointment.id}
@@ -220,84 +251,25 @@ const UserDashboardPage: React.FC = () => {
                       ))}
                     </div>
                   ) : (
-                    <div className="py-12 text-center">
-                      <p className="text-gray-500 text-lg">No past appointments found.</p>
+                    <div className="py-8 text-center">
+                      <p className="text-gray-500">No past appointments found.</p>
                     </div>
                   )}
                 </>
               )}
             </CardBody>
           </Card>
-          
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <h2 className="text-xl font-semibold">Health Reminders</h2>
-              </CardHeader>
-              <CardBody>
-                <ul className="space-y-3">
-                  <li className="flex items-center p-2 bg-blue-50 rounded-md">
-                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-3">
-                      <Calendar size={16} className="text-blue-600" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-sm">Annual Check-up Due</p>
-                      <p className="text-xs text-gray-600">Schedule your annual physical examination</p>
-                    </div>
-                  </li>
-                  <li className="flex items-center p-2 bg-green-50 rounded-md">
-                    <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center mr-3">
-                      <Calendar size={16} className="text-green-600" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-sm">Vaccination Reminder</p>
-                      <p className="text-xs text-gray-600">Flu shot available starting next month</p>
-                    </div>
-                  </li>
-                </ul>
-              </CardBody>
-            </Card>
-            
-            <Card>
-              <CardHeader>
-                <h2 className="text-xl font-semibold">Quick Actions</h2>
-              </CardHeader>
-              <CardBody>
-                <div className="grid grid-cols-2 gap-3">
-                  <Button
-                    variant="secondary"
-                    onClick={() => navigate('/chatbot')}
-                    fullWidth
-                  >
-                    New Appointment
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    onClick={() => alert('This would open the prescription refill form')}
-                    fullWidth
-                  >
-                    Refill Prescription
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    onClick={() => alert('This would open the medical records')}
-                    fullWidth
-                  >
-                    View Records
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    onClick={() => alert('This would open the messaging interface')}
-                    fullWidth
-                  >
-                    Message Doctor
-                  </Button>
-                </div>
-              </CardBody>
-            </Card>
-          </div>
         </div>
       </div>
+      
+      {/* Reschedule Modal */}
+      {showRescheduleModal && selectedAppointment && (
+        <RescheduleModal
+          appointment={selectedAppointment}
+          onClose={handleCloseModal}
+          onReschedule={handleConfirmReschedule}
+        />
+      )}
     </div>
   );
 };

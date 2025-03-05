@@ -22,4 +22,7 @@ module.exports = {
   // JWT configuration
   JWT_SECRET: process.env.JWT_SECRET || 'your-jwt-secret',
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '1d',
+  
+  // Webhook configuration
+  WEBHOOK_SECRET: process.env.WEBHOOK_SECRET,
 };

@@ -25,6 +25,20 @@ class User {
   }
 
   /**
+   * Get all users
+   * @returns {Promise<Array>} Array of users
+   */
+  static async getAll() {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    return data;
+  }
+
+  /**
    * Get a user by email
    * @param {string} email - User email
    * @returns {Promise<Object>} User object

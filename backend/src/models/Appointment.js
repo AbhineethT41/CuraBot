@@ -35,6 +35,31 @@ class Appointment {
   }
 
   /**
+   * Get all appointments (admin only)
+   * @returns {Promise<Array>} Array of all appointments
+   */
+  static async getAll() {
+    const { data, error } = await supabase
+      .from('appointments')
+      .select(`
+        *,
+        patients:patient_id (id, first_name, last_name, email, phone),
+        doctors:doctor_id (
+          id, 
+          image, 
+          location,
+          users:user_id (id, first_name, last_name, email, phone),
+          specialties:specialty_id (id, name)
+        )
+      `)
+      .order('date', { ascending: true })
+      .order('time', { ascending: true });
+    
+    if (error) throw error;
+    return data;
+  }
+
+  /**
    * Get appointments for a patient
    * @param {string} patientId - Patient UUID
    * @returns {Promise<Array>} Array of appointments
@@ -113,6 +138,44 @@ class Appointment {
   }
 
   /**
+   * Delete an appointment
+   * @param {string} id - Appointment UUID
+   * @returns {Promise<boolean>} Success status
+   */
+  static async delete(id) {
+    // Get the appointment first to get doctor_id, date, and time
+    const { data: appointment, error: getError } = await supabase
+      .from('appointments')
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (getError) throw getError;
+    
+    // Delete the appointment
+    const { error: deleteError } = await supabase
+      .from('appointments')
+      .delete()
+      .eq('id', id);
+    
+    if (deleteError) throw deleteError;
+    
+    // If the appointment was confirmed, make the slot available again
+    if (appointment.status === 'confirmed') {
+      const { error: slotError } = await supabase
+        .from('available_slots')
+        .update({ is_available: true })
+        .eq('doctor_id', appointment.doctor_id)
+        .eq('date', appointment.date)
+        .eq('start_time', appointment.time);
+      
+      if (slotError) throw slotError;
+    }
+    
+    return true;
+  }
+
+  /**
    * Cancel an appointment
    * @param {string} id - Appointment UUID
    * @returns {Promise<Object>} Cancelled appointment
@@ -168,6 +231,94 @@ class Appointment {
     
     if (error) throw error;
     return data;
+  }
+
+  /**
+   * Check if a slot is available for a doctor
+   * @param {string} doctorId - Doctor UUID
+   * @param {string} date - Date (YYYY-MM-DD)
+   * @param {string} time - Time (HH:MM)
+   * @param {string} excludeAppointmentId - Optional appointment ID to exclude from check
+   * @returns {Promise<boolean>} Whether the slot is available
+   */
+  static async isSlotAvailable(doctorId, date, time, excludeAppointmentId = null) {
+    // Check if there's already an appointment at this time
+    let query = supabase
+      .from('appointments')
+      .select('id')
+      .eq('doctor_id', doctorId)
+      .eq('date', date)
+      .eq('time', time)
+      .neq('status', 'cancelled');
+    
+    // Exclude the current appointment if updating
+    if (excludeAppointmentId) {
+      query = query.neq('id', excludeAppointmentId);
+    }
+    
+    const { data: existingAppointments, error: appointmentError } = await query;
+    
+    if (appointmentError) throw appointmentError;
+    
+    // If there's already an appointment, the slot is not available
+    if (existingAppointments.length > 0) {
+      return false;
+    }
+    
+    // Check if the doctor has this slot available
+    const { data: availableSlots, error: slotError } = await supabase
+      .from('available_slots')
+      .select('*')
+      .eq('doctor_id', doctorId)
+      .eq('date', date)
+      .eq('start_time', time)
+      .eq('is_available', true);
+    
+    if (slotError) throw slotError;
+    
+    // If there's an available slot, return true
+    return availableSlots.length > 0;
+  }
+
+  /**
+   * Get available slots for a doctor on a specific date
+   * @param {string} doctorId - Doctor UUID
+   * @param {string} date - Date (YYYY-MM-DD)
+   * @returns {Promise<Array>} Array of available time slots
+   */
+  static async getAvailableSlots(doctorId, date) {
+    // Get all slots for the doctor on this date
+    const { data: allSlots, error: slotError } = await supabase
+      .from('available_slots')
+      .select('*')
+      .eq('doctor_id', doctorId)
+      .eq('date', date)
+      .eq('is_available', true)
+      .order('start_time');
+    
+    if (slotError) throw slotError;
+    
+    // Get existing appointments for this doctor on this date
+    const { data: existingAppointments, error: appointmentError } = await supabase
+      .from('appointments')
+      .select('time')
+      .eq('doctor_id', doctorId)
+      .eq('date', date)
+      .neq('status', 'cancelled');
+    
+    if (appointmentError) throw appointmentError;
+    
+    // Convert existing appointments to a set of times
+    const bookedTimes = new Set(existingAppointments.map(a => a.time));
+    
+    // Filter out slots that already have appointments
+    const availableSlots = allSlots.filter(slot => !bookedTimes.has(slot.start_time));
+    
+    return availableSlots.map(slot => ({
+      time: slot.start_time,
+      end_time: slot.end_time,
+      duration: slot.duration
+    }));
   }
 }
 
