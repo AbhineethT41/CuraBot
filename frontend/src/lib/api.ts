@@ -1,5 +1,19 @@
 // Base API URL
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// In production, API calls will be made to the same origin (relative URL)
+// In development, we'll use the environment variable or default to localhost
+const API_URL = (() => {
+  // Check if we're in production by looking at the hostname
+  const isProduction = window.location.hostname !== 'localhost' && 
+                      window.location.hostname !== '127.0.0.1';
+  
+  if (isProduction) {
+    // In production, use relative URL since backend serves frontend
+    return '/api';
+  }
+  
+  // In development, use environment variable or default
+  return import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+})();
 
 /**
  * Generic API client for making requests to the backend

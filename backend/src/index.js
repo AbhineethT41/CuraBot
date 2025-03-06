@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
 const dotenv = require('dotenv');
+const path = require('path');
 
 // Load environment variables
 dotenv.config();
@@ -14,6 +15,9 @@ app.use(cors());
 app.use(express.json());
 app.use(morgan('dev'));
 
+// Serve static files from the public directory (frontend build)
+app.use(express.static(path.join(__dirname, '../public')));
+
 // Routes
 app.use('/api/doctors', require('./routes/doctorRoutes'));
 app.use('/api/appointments', require('./routes/appointmentRoutes'));
@@ -23,8 +27,8 @@ app.use('/api/specialties', require('./routes/specialtyRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/chatbot', require('./routes/chatbotRoutes'));
 
-// Root route
-app.get('/', (req, res) => {
+// API root route
+app.get('/api', (req, res) => {
   res.json({ message: 'Welcome to CuraBot API' });
 });
 
@@ -40,6 +44,16 @@ app.use((err, req, res, next) => {
     message: err.message || 'Something went wrong!',
     stack: process.env.NODE_ENV === 'production' ? null : err.stack
   });
+});
+
+// Catch-all route to serve the frontend for any non-API routes
+app.get('*', (req, res) => {
+  // Only serve the index.html for non-API routes to support client-side routing
+  if (!req.path.startsWith('/api')) {
+    res.sendFile(path.join(__dirname, '../public/index.html'));
+  } else {
+    res.status(404).json({ message: 'API endpoint not found' });
+  }
 });
 
 // Start server
