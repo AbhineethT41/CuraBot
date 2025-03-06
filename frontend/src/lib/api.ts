@@ -1,10 +1,9 @@
-import { supabase } from './supabase';
-
 // Base API URL
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 /**
- * Generic API client for making authenticated requests to the backend
+ * Generic API client for making requests to the backend
+ * Authentication has been removed for development
  */
 export const api = {
   /**
@@ -14,9 +13,6 @@ export const api = {
    * @returns Response data
    */
   async get<T>(endpoint: string, params: Record<string, any> = {}): Promise<T> {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData?.session?.access_token;
-    
     const url = new URL(`${API_URL}${endpoint}`);
     
     // Add query parameters
@@ -24,20 +20,23 @@ export const api = {
       url.searchParams.append(key, params[key]);
     });
     
+    console.log(`Making GET request to: ${url.toString()}`);
+    
     const response = await fetch(url.toString(), {
       method: 'GET',
       headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        'Content-Type': 'application/json'
       }
     });
     
     if (!response.ok) {
-      const error = await response.json();
+      const error = await response.json().catch(() => ({ message: 'Unknown error' }));
       throw new Error(error.message || 'API request failed');
     }
     
-    return response.json();
+    const data = await response.json();
+    console.log(`GET response from ${endpoint}:`, data);
+    return data;
   },
   
   /**
@@ -47,24 +46,29 @@ export const api = {
    * @returns Response data
    */
   async post<T>(endpoint: string, data: any = {}): Promise<T> {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData?.session?.access_token;
+    console.log(`Making POST request to: ${API_URL}${endpoint}`, data);
     
     const response = await fetch(`${API_URL}${endpoint}`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify(data)
     });
     
     if (!response.ok) {
-      const error = await response.json();
+      const error = await response.json().catch(() => ({ message: 'Unknown error' }));
       throw new Error(error.message || 'API request failed');
     }
     
-    return response.json();
+    try {
+      const responseData = await response.json();
+      console.log(`POST response from ${endpoint}:`, responseData);
+      return responseData;
+    } catch (error) {
+      console.error(`Error parsing JSON from ${endpoint}:`, error);
+      throw new Error('Invalid JSON response from server');
+    }
   },
   
   /**
@@ -74,24 +78,24 @@ export const api = {
    * @returns Response data
    */
   async put<T>(endpoint: string, data: any = {}): Promise<T> {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData?.session?.access_token;
+    console.log(`Making PUT request to: ${API_URL}${endpoint}`, data);
     
     const response = await fetch(`${API_URL}${endpoint}`, {
       method: 'PUT',
       headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify(data)
     });
     
     if (!response.ok) {
-      const error = await response.json();
+      const error = await response.json().catch(() => ({ message: 'Unknown error' }));
       throw new Error(error.message || 'API request failed');
     }
     
-    return response.json();
+    const responseData = await response.json();
+    console.log(`PUT response from ${endpoint}:`, responseData);
+    return responseData;
   },
   
   /**
@@ -100,22 +104,22 @@ export const api = {
    * @returns Response data
    */
   async delete<T>(endpoint: string): Promise<T> {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData?.session?.access_token;
+    console.log(`Making DELETE request to: ${API_URL}${endpoint}`);
     
     const response = await fetch(`${API_URL}${endpoint}`, {
       method: 'DELETE',
       headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        'Content-Type': 'application/json'
       }
     });
     
     if (!response.ok) {
-      const error = await response.json();
+      const error = await response.json().catch(() => ({ message: 'Unknown error' }));
       throw new Error(error.message || 'API request failed');
     }
     
-    return response.json();
+    const responseData = await response.json();
+    console.log(`DELETE response from ${endpoint}:`, responseData);
+    return responseData;
   }
 };
