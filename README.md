@@ -5,7 +5,7 @@ CuraBot is a modern, responsive hospital front-desk chatbot that helps patients 
 ## Project Overview
 
 CuraBot helps patients:
-1. Check symptoms and get doctor specialization recommendations
+1. Check symptoms and get doctor specialization recommendations using AI-powered analysis
 2. View available doctors and their appointment slots
 3. Book an appointment and receive a confirmation
 4. Authenticate and manage their profile (to be implemented)
@@ -14,9 +14,11 @@ CuraBot helps patients:
 ## Tech Stack
 
 - **Frontend Framework:** React.js (Functional Components, Hooks)
-- **Styling:** Tailwind CSS
-- **State Management:** Zustand
+- **Styling:** Tailwind CSS & Material-UI
+- **State Management:** Zustand & React Context
 - **Routing:** React Router
+- **Backend Framework:** Express.js
+- **AI Integration:** Groq API for symptom analysis
 - **Containerization:** Docker
 - **Environment Variables:** .env files
 

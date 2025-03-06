@@ -1,46 +1,57 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { useAuthStore } from '../store/authStore';
+import React, { createContext, useContext } from 'react';
 
-// Create auth context
-const AuthContext = createContext<ReturnType<typeof useAuthStore.getState> | undefined>(undefined);
+// Create a simplified auth context with mock user data
+interface AuthContextType {
+  user: {
+    id: string;
+    user_metadata: {
+      first_name: string;
+      last_name: string;
+      user_type: string;
+    }
+  } | null;
+  session: any;
+  loading: boolean;
+  error: string | null;
+  signIn: (email: string, password: string) => Promise<any>;
+  signUp: (email: string, password: string, userData: any) => Promise<any>;
+  signOut: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  updateProfile: (data: any) => Promise<void>;
+  initialize: () => Promise<() => void>;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// Mock user for development without authentication
+const mockUser = {
+  id: 'mock-user-id',
+  user_metadata: {
+    first_name: 'Test',
+    last_name: 'User',
+    user_type: 'patient', // Default to patient role
+  }
+};
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const authStore = useAuthStore();
-  const [isInitialized, setIsInitialized] = useState(false);
-  
-  useEffect(() => {
-    // Initialize auth state when component mounts
-    let unsubscribe: (() => void) | undefined;
+  // Create a simplified auth store with mock data
+  const authStore: AuthContextType = {
+    user: mockUser,
+    session: { user: mockUser },
+    loading: false,
+    error: null,
     
-    const initializeAuth = async () => {
-      try {
-        const unsub = await authStore.initialize();
-        unsubscribe = unsub;
-        setIsInitialized(true);
-      } catch (error) {
-        console.error('Failed to initialize auth:', error);
-        setIsInitialized(true); // Still set to true so we don't block rendering
-      }
-    };
-    
-    initializeAuth();
-    
-    // Clean up subscription when component unmounts
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
-  }, []); // Remove authStore from dependencies to prevent infinite loops
-  
-  // Show loading state while initializing
-  if (!isInitialized) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
+    // Mock auth methods
+    signIn: async () => ({ user: mockUser }),
+    signUp: async () => ({ user: mockUser }),
+    signOut: async () => {},
+    resetPassword: async () => {},
+    updateProfile: async () => {},
+    initialize: async () => {
+      console.log('Auth initialization bypassed - using mock user');
+      return () => {};
+    }
+  };
   
   return (
     <AuthContext.Provider value={authStore}>

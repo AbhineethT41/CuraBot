@@ -1,46 +1,63 @@
-/**
- * CuraBot API Server
- * Main entry point for the backend API
- */
 const express = require('express');
 const cors = require('cors');
-const config = require('./config');
+const morgan = require('morgan');
+const dotenv = require('dotenv');
+const path = require('path');
 
-// Import routes
-const authRoutes = require('./routes/authRoutes');
-const webhookRoutes = require('./routes/webhookRoutes');
+// Load environment variables
+dotenv.config();
 
-// Initialize Express app
+// Create Express app
 const app = express();
 
 // Middleware
-app.use(cors({
-  origin: config.CORS_ORIGIN,
-  credentials: true
-}));
+app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(morgan('dev'));
 
-// API routes
-app.use('/api/auth', authRoutes);
-app.use('/api/webhooks', webhookRoutes);
+// Serve static files from the public directory (frontend build)
+app.use(express.static(path.join(__dirname, '../public')));
 
-// Health check endpoint
+// Routes
+app.use('/api/doctors', require('./routes/doctorRoutes'));
+app.use('/api/appointments', require('./routes/appointmentRoutes'));
+app.use('/api/messages', require('./routes/messageRoutes'));
+app.use('/api/symptoms', require('./routes/symptomRoutes'));
+app.use('/api/specialties', require('./routes/specialtyRoutes'));
+app.use('/api/notifications', require('./routes/notificationRoutes'));
+app.use('/api/chatbot', require('./routes/chatbotRoutes'));
+
+// API root route
+app.get('/api', (req, res) => {
+  res.json({ message: 'Welcome to CuraBot API' });
+});
+
+// Health check route
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok', environment: config.NODE_ENV });
+  res.json({ status: 'ok' });
 });
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err);
+  console.error(err.stack);
   res.status(500).json({
-    message: 'Internal server error',
-    error: config.NODE_ENV === 'development' ? err.message : undefined
+    message: err.message || 'Something went wrong!',
+    stack: process.env.NODE_ENV === 'production' ? null : err.stack
   });
 });
 
+// Catch-all route to serve the frontend for any non-API routes
+app.get('*', (req, res) => {
+  // Only serve the index.html for non-API routes to support client-side routing
+  if (!req.path.startsWith('/api')) {
+    res.sendFile(path.join(__dirname, '../public/index.html'));
+  } else {
+    res.status(404).json({ message: 'API endpoint not found' });
+  }
+});
+
 // Start server
-const PORT = config.PORT;
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT} in ${config.NODE_ENV} mode`);
+  console.log(`Server running on port ${PORT}`);
 });
