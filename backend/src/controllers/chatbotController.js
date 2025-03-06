@@ -121,7 +121,7 @@ const symptomToSpecialty = {
 // @route   POST /api/chatbot/analyze
 // @access  Public
 const analyzeSymptoms = asyncHandler(async (req, res) => {
-  const { message, currentSymptoms = [] } = req.body;
+  const { message, currentSymptoms = [], conversationState = 'initial' } = req.body;
   
   if (!message) {
     res.status(400);
@@ -133,6 +133,9 @@ const analyzeSymptoms = asyncHandler(async (req, res) => {
       throw new Error('Groq client not initialized');
     }
     
+    // Determine if this is the final response where we should recommend doctors
+    const isFinalResponse = conversationState === 'follow_up' || currentSymptoms.length >= 3;
+    
     // Prepare the prompt for Groq
     const prompt = `
     You are a medical assistant AI that helps identify symptoms and recommend appropriate medical specialists.
@@ -141,16 +144,18 @@ const analyzeSymptoms = asyncHandler(async (req, res) => {
     
     Patient's new message: "${message}"
     
+    ${isFinalResponse ? 'This is the final response. Provide a comprehensive analysis and definitive specialist recommendation.' : 'This is an initial assessment. Extract symptoms and ask follow-up questions to better understand the condition.'}
+    
     Please analyze this message and:
     1. Extract any new symptoms mentioned
     2. Determine the most appropriate medical specialty based on all symptoms
-    3. Suggest 2-3 follow-up questions to better understand the patient's condition
+    3. ${isFinalResponse ? 'Provide a final assessment' : 'Suggest 2-3 follow-up questions to better understand the patient\'s condition'}
     
     Respond in JSON format only:
     {
       "extractedSymptoms": ["symptom1", "symptom2", ...],
       "recommendedSpecialty": "specialty name",
-      "followUpQuestions": ["question1", "question2", "question3"],
+      ${isFinalResponse ? '"finalAssessment": "comprehensive assessment of the patient\'s condition",' : '"followUpQuestions": ["question1", "question2", "question3"],'}
       "reasoning": "brief explanation of your recommendation"
     }
     `;
@@ -187,12 +192,33 @@ const analyzeSymptoms = asyncHandler(async (req, res) => {
         parsedResponse.recommendedSpecialty = analyzeSymptomLocally([...currentSymptoms, ...parsedResponse.extractedSymptoms]);
       }
       
-      if (!parsedResponse.followUpQuestions || !Array.isArray(parsedResponse.followUpQuestions)) {
-        parsedResponse.followUpQuestions = [
-          "How long have you been experiencing these symptoms?",
-          "Are your symptoms constant or do they come and go?",
-          "Have you taken any medication for these symptoms?"
-        ];
+      // Set the next conversation state
+      const nextState = isFinalResponse ? 'complete' : 'follow_up';
+      parsedResponse.conversationState = nextState;
+      
+      // If this is the final response, include doctor recommendations
+      if (isFinalResponse) {
+        // Import the doctor controller to get doctors by specialty
+        const doctorController = require('./doctorController');
+        
+        // Get doctors for the recommended specialty
+        const doctors = doctorController.getMockDoctorsBySpecialty(parsedResponse.recommendedSpecialty);
+        
+        parsedResponse.doctors = doctors;
+        
+        // If there are no follow-up questions in the final response, don't include the property
+        if (!parsedResponse.finalAssessment) {
+          parsedResponse.finalAssessment = `Based on the symptoms provided, I recommend consulting with a ${parsedResponse.recommendedSpecialty} specialist. This recommendation is made considering all the symptoms you've described.`;
+        }
+      } else {
+        // Ensure follow-up questions are present for non-final responses
+        if (!parsedResponse.followUpQuestions || !Array.isArray(parsedResponse.followUpQuestions)) {
+          parsedResponse.followUpQuestions = [
+            "How long have you been experiencing these symptoms?",
+            "Are your symptoms constant or do they come and go?",
+            "Have you taken any medication for these symptoms?"
+          ];
+        }
       }
       
       if (!parsedResponse.reasoning) {
@@ -204,18 +230,65 @@ const analyzeSymptoms = asyncHandler(async (req, res) => {
     } catch (parseError) {
       console.error('Error parsing Groq response:', parseError);
       // Fallback to local analysis if parsing fails
-      const fallbackAnalysis = performLocalSymptomAnalysis(message, currentSymptoms);
+      const fallbackAnalysis = performLocalSymptomAnalysis(message, currentSymptoms, conversationState === 'follow_up');
       res.json(fallbackAnalysis);
     }
   } catch (error) {
     console.error('Error analyzing symptoms:', error);
     
     // Fallback to local analysis if Groq fails
-    const fallbackAnalysis = performLocalSymptomAnalysis(message, currentSymptoms);
+    const fallbackAnalysis = performLocalSymptomAnalysis(message, currentSymptoms, conversationState === 'follow_up');
     
     res.json(fallbackAnalysis);
   }
 });
+
+// Helper function for local symptom analysis as fallback
+function performLocalSymptomAnalysis(message, currentSymptoms, isFinalResponse = false) {
+  const normalizedMessage = message.toLowerCase();
+  const extractedSymptoms = [];
+  
+  // Extract symptoms from the message
+  for (const symptom of Object.keys(symptomToSpecialty)) {
+    if (normalizedMessage.includes(symptom)) {
+      extractedSymptoms.push(symptom);
+    }
+  }
+  
+  // Combine with current symptoms
+  const allSymptoms = [...new Set([...currentSymptoms, ...extractedSymptoms])];
+  
+  // Determine specialty
+  const recommendedSpecialty = analyzeSymptomLocally(allSymptoms);
+  
+  // Create response based on conversation state
+  const response = {
+    extractedSymptoms,
+    recommendedSpecialty,
+    reasoning: `Based on the symptoms ${allSymptoms.join(', ')}, a ${recommendedSpecialty} specialist would be most appropriate.`,
+    conversationState: isFinalResponse ? 'complete' : 'follow_up'
+  };
+  
+  if (isFinalResponse) {
+    // Import the doctor controller to get doctors by specialty
+    const doctorController = require('./doctorController');
+    
+    // Get doctors for the recommended specialty
+    const doctors = doctorController.getMockDoctorsBySpecialty(recommendedSpecialty);
+    
+    response.doctors = doctors;
+    response.finalAssessment = `Based on your symptoms, I recommend consulting with a ${recommendedSpecialty} specialist. This recommendation is made considering all the symptoms you've described.`;
+  } else {
+    // Generate follow-up questions
+    response.followUpQuestions = [
+      `How long have you been experiencing these symptoms?`,
+      `Are your symptoms constant or do they come and go?`,
+      `Have you taken any medication for these symptoms?`
+    ];
+  }
+  
+  return response;
+}
 
 // @desc    Get follow-up questions for symptoms
 // @route   POST /api/chatbot/follow-up
@@ -408,39 +481,6 @@ function analyzeSymptomLocally(symptoms) {
   }
   
   return recommendedSpecialty;
-}
-
-// Helper function for local symptom analysis as fallback
-function performLocalSymptomAnalysis(message, currentSymptoms) {
-  const normalizedMessage = message.toLowerCase();
-  const extractedSymptoms = [];
-  
-  // Extract symptoms from the message
-  for (const symptom of Object.keys(symptomToSpecialty)) {
-    if (normalizedMessage.includes(symptom)) {
-      extractedSymptoms.push(symptom);
-    }
-  }
-  
-  // Combine with current symptoms
-  const allSymptoms = [...new Set([...currentSymptoms, ...extractedSymptoms])];
-  
-  // Determine specialty
-  const recommendedSpecialty = analyzeSymptomLocally(allSymptoms);
-  
-  // Generate follow-up questions
-  const followUpQuestions = [
-    `How long have you been experiencing these symptoms?`,
-    `Are your symptoms constant or do they come and go?`,
-    `Have you taken any medication for these symptoms?`
-  ];
-  
-  return {
-    extractedSymptoms,
-    recommendedSpecialty,
-    followUpQuestions,
-    reasoning: `Based on the symptoms ${allSymptoms.join(', ')}, a ${recommendedSpecialty} specialist would be most appropriate.`
-  };
 }
 
 module.exports = {

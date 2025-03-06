@@ -18,6 +18,7 @@ const ChatbotInterface = () => {
   const [recommendedSpecialty, setRecommendedSpecialty] = useState(null);
   const [recommendedDoctors, setRecommendedDoctors] = useState([]);
   const [followUpQuestions, setFollowUpQuestions] = useState([]);
+  const [conversationState, setConversationState] = useState('initial');
   const messagesEndRef = useRef(null);
 
   // Auto-scroll to bottom of messages
@@ -41,13 +42,20 @@ const ChatbotInterface = () => {
       // Call the symptom analysis API
       console.log('Sending message to analyze:', input);
       console.log('Current symptoms:', currentSymptoms);
+      console.log('Conversation state:', conversationState);
       
       const response = await api.post('/chatbot/analyze', {
         message: input,
-        currentSymptoms
+        currentSymptoms,
+        conversationState
       });
 
       console.log('Raw API Response:', response);
+
+      // Update conversation state from the response
+      if (response.conversationState) {
+        setConversationState(response.conversationState);
+      }
 
       // Process the response data
       let botResponse = '';
@@ -62,24 +70,24 @@ const ChatbotInterface = () => {
       if (response.recommendedSpecialty) {
         setRecommendedSpecialty(response.recommendedSpecialty);
         botResponse += `Based on your symptoms, I recommend consulting with a ${response.recommendedSpecialty} specialist. `;
-        
-        try {
-          // Get doctor recommendations if we have a specialty
-          const doctorsResponse = await api.post('/chatbot/recommend-doctors', {
-            symptoms: [...currentSymptoms, ...(response.extractedSymptoms || [])],
-            specialty: response.recommendedSpecialty
-          });
-          
-          if (doctorsResponse && doctorsResponse.doctors && Array.isArray(doctorsResponse.doctors)) {
-            setRecommendedDoctors(doctorsResponse.doctors);
-          }
-        } catch (doctorError) {
-          console.error('Error getting doctor recommendations:', doctorError);
-          // Continue with the conversation even if doctor recommendations fail
-        }
       }
       
-      // Handle follow-up questions
+      // Handle final assessment (for final response)
+      if (response.finalAssessment) {
+        botResponse += `\n\n${response.finalAssessment}`;
+      }
+      
+      // Handle doctors (for final response)
+      if (response.doctors && Array.isArray(response.doctors) && response.doctors.length > 0) {
+        setRecommendedDoctors(response.doctors);
+        botResponse += `\n\nHere are some recommended doctors:\n`;
+        
+        response.doctors.slice(0, 3).forEach((doctor, index) => {
+          botResponse += `• ${doctor.name} - ${doctor.specialty}${doctor.rating ? ` (Rating: ${doctor.rating}/5)` : ''}\n`;
+        });
+      }
+      
+      // Handle follow-up questions (for non-final response)
       if (response.followUpQuestions && Array.isArray(response.followUpQuestions) && response.followUpQuestions.length > 0) {
         setFollowUpQuestions(response.followUpQuestions);
         botResponse += `\n\nTo better understand your condition, could you please answer these questions:\n• ${response.followUpQuestions.join('\n• ')}`;
